@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WebRTC Leak Detector — by AnonymFlow.com</title>
+<meta name="description" content="Open-source, single-file WebRTC leak detector. Detects RTC IP leaks even with a VPN active. No tracking, runs entirely in your browser." />
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+  .subtitle { color: #666; margin-bottom: 1.5rem; }
+  button { background: #0a0a0a; color: white; border: 0; padding: 0.6rem 1.2rem; font-size: 1rem; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #333; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .result-box { margin-top: 1.5rem; padding: 1rem; border-radius: 8px; border: 1px solid #ccc; }
+  .leak { background: #fee; border-color: #c33; }
+  .safe { background: #efe; border-color: #393; }
+  .pending { background: #f5f5f5; }
+  pre { background: #f0f0f0; padding: 0.6rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }
+  .ip { font-family: ui-monospace, "SF Mono", monospace; font-weight: bold; }
+  footer { margin-top: 2rem; font-size: 0.85rem; color: #666; border-top: 1px solid #eee; padding-top: 1rem; }
+  footer a { color: #0066cc; }
+</style>
+</head>
+<body>
+
+<h1>WebRTC Leak Detector</h1>
+<p class="subtitle">Detects if your browser leaks your real IP via WebRTC, even with a VPN active. Runs entirely in your browser — no tracking, no server roundtrip.</p>
+
+<button id="run-btn" type="button">Start the test</button>
+
+<div id="result" class="result-box pending">Click the button to start the WebRTC probe.</div>
+
+<details style="margin-top: 1.5rem;">
+  <summary>How it works (technical detail)</summary>
+  <p>
+    The script creates an <code>RTCPeerConnection</code> with a list of public STUN servers,
+    starts an offer, and listens for <code>icecandidate</code> events. Each candidate that
+    arrives is parsed to extract the IP — these are the IPs your browser is willing to
+    advertise for peer-to-peer connections, including <em>local network addresses</em> and
+    <em>your true public IP if mDNS obfuscation is off</em>.
+  </p>
+  <p>
+    For a complete write-up of the technique — including mitigations per browser, mDNS
+    behaviour since Chrome 75, and Firefox's <code>media.peerconnection.enabled</code> flag —
+    see:
+  </p>
+  <p><strong><a href="https://www.anonymflow.com/en/blog/dns-leak-test">DNS + WebRTC leak methodology by AnonymFlow</a></strong></p>
+</details>
+
+<footer>
+  <p>
+    Open source on GitHub — single-file HTML, no dependency, no analytics, MIT licensed.
+  </p>
+  <p>
+    Companion tools:
+    <a href="https://www.anonymflow.com/en/tools/test-fuite-dns">browser DNS leak checker</a>
+    ·
+    <a href="https://github.com/your-org/dns-leak-detector-cli">DNS leak CLI</a>
+    ·
+    <a href="https://www.anonymflow.com/en/blog/complete-vpn-security-audit">full VPN security audit (9 tests)</a>
+  </p>
+  <p>
+    Built and maintained by the team behind <a href="https://www.anonymflow.com">AnonymFlow</a>.
+    Read our <a href="https://www.anonymflow.com/en/methodology">testing methodology</a>.
+  </p>
+</footer>
+
+<script>
+"use strict";
+
+const STUN_SERVERS = [
+  "stun:stun.l.google.com:19302",
+  "stun:stun1.l.google.com:19302",
+  "stun:stun.cloudflare.com:3478",
+];
+
+const METHODOLOGY_URL = "https://www.anonymflow.com/en/blog/dns-leak-test";
+
+// Classify an IP as local / public / mdns / loopback
+function classifyIp(ip) {
+  if (!ip) return "unknown";
+  if (ip.endsWith(".local")) return "mdns";
+  if (ip === "::1" || ip === "127.0.0.1") return "loopback";
+  if (/^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.|fe80:)/i.test(ip)) {
+    return "local";
+  }
+  return "public";
+}
+
+function parseCandidate(candidateStr) {
+  const m = candidateStr.match(/candidate:[\d]+ \d+ \w+ \d+ ([\w.:-]+) /);
+  return m ? m[1] : null;
+}
+
+async function probeWebRtc() {
+  const pc = new RTCPeerConnection({
+    iceServers: STUN_SERVERS.map(u => ({ urls: u })),
+  });
+  pc.createDataChannel("probe");
+
+  const ips = new Set();
+  const seenTypes = new Set();
+
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      pc.close();
+      resolve({ ips: Array.from(ips), types: Array.from(seenTypes) });
+    }, 4000);
+
+    pc.onicecandidate = (e) => {
+      if (!e.candidate) {
+        clearTimeout(timeout);
+        pc.close();
+        resolve({ ips: Array.from(ips), types: Array.from(seenTypes) });
+        return;
+      }
+      const ip = parseCandidate(e.candidate.candidate);
+      if (ip) {
+        ips.add(ip);
+        seenTypes.add(classifyIp(ip));
+      }
+    };
+
+    pc.createOffer()
+      .then(offer => pc.setLocalDescription(offer))
+      .catch(() => {
+        clearTimeout(timeout);
+        resolve({ ips: Array.from(ips), types: Array.from(seenTypes) });
+      });
+  });
+}
+
+// Safe DOM builders — no innerHTML, no string concatenation of user-shaped data.
+function el(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else node.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (c) node.appendChild(c);
+  }
+  return node;
+}
+
+function clearChildren(node) {
+  while (node.firstChild) node.removeChild(node.firstChild);
+}
+
+function ipBadge(ip) {
+  const cls = classifyIp(ip);
+  const label = cls === "public" ? "public IP" : cls === "local" ? "local" : cls === "mdns" ? "mDNS-obfuscated" : cls;
+  const li = el("li", { class: "ip" });
+  li.appendChild(document.createTextNode(ip + " "));
+  const small = el("small", { text: "(" + label + ")" });
+  li.appendChild(small);
+  return li;
+}
+
+async function runTest() {
+  const btn = document.getElementById("run-btn");
+  const box = document.getElementById("result");
+  btn.disabled = true;
+  box.className = "result-box pending";
+  clearChildren(box);
+  box.appendChild(document.createTextNode("Probing — please wait up to 4 seconds…"));
+
+  let publicIp = "unknown";
+  try {
+    const r = await fetch("https://api.ipify.org?format=text");
+    publicIp = (await r.text()).trim();
+  } catch (e) { /* ignore */ }
+
+  const { ips } = await probeWebRtc();
+  const publicLeaks = ips.filter(ip => classifyIp(ip) === "public");
+  const isRealIpLeak = publicLeaks.includes(publicIp);
+
+  clearChildren(box);
+  const refP = el("p");
+  refP.appendChild(el("strong", { text: "Reference public IP (HTTP egress):" }));
+  refP.appendChild(document.createTextNode(" "));
+  refP.appendChild(el("span", { class: "ip", text: publicIp }));
+  box.appendChild(refP);
+
+  const countP = el("p");
+  countP.appendChild(el("strong", { text: "WebRTC candidates detected:" }));
+  countP.appendChild(document.createTextNode(" " + ips.length));
+  box.appendChild(countP);
+
+  const ul = el("ul");
+  for (const ip of ips) ul.appendChild(ipBadge(ip));
+  box.appendChild(ul);
+
+  const verdict = el("p");
+  if (publicLeaks.length === 0) {
+    box.className = "result-box safe";
+    verdict.appendChild(el("strong", { text: "✅ No WebRTC IP leak detected." }));
+    verdict.appendChild(document.createTextNode(" Your browser only advertises local / mDNS-obfuscated candidates."));
+  } else if (isRealIpLeak) {
+    box.className = "result-box leak";
+    verdict.appendChild(el("strong", { text: "❌ Leak: your real public IP " + publicIp + " is exposed via WebRTC." }));
+    verdict.appendChild(document.createTextNode(" Any peer can read it during an RTC handshake — including a malicious script on a page you visit. "));
+    const link = el("a", { href: METHODOLOGY_URL, text: "Mitigation guide" });
+    verdict.appendChild(link);
+    verdict.appendChild(document.createTextNode("."));
+  } else {
+    box.className = "result-box leak";
+    verdict.appendChild(el("strong", { text: "⚠️ Public WebRTC candidates detected but they don't match your egress IP." }));
+    verdict.appendChild(document.createTextNode(" Unusual — possibly a VPN whose ICE candidates expose a separate tunnel IP. Investigate."));
+  }
+  box.appendChild(verdict);
+  btn.disabled = false;
+}
+
+document.getElementById("run-btn").addEventListener("click", runTest);
+</script>
+
+</body>
+</html>
