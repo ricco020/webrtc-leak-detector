@@ -49,7 +49,7 @@ enough, read the companion methodology:
 
 ```bash
 # Option 1: open the file locally
-git clone https://github.com/<ricco020>/webrtc-leak-detector
+git clone https://github.com/ricco020/webrtc-leak-detector
 cd webrtc-leak-detector
 open webrtc-detect.html         # macOS
 xdg-open webrtc-detect.html     # Linux
