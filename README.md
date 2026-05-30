@@ -117,7 +117,7 @@ if you don't want to depend on someone else's.
 
 - [DNS leak CLI](https://github.com/your-org/dns-leak-detector-cli) — sister tool, OS-level DNS leak probing
 - [AnonymFlow VPN security audit (9 tests)](https://www.anonymflow.com/en/blog/complete-vpn-security-audit) — broader checklist
-- [AnonymFlow web-based DNS + WebRTC checker](https://www.anonymflow.com/en/tools/test-fuite-dns) — same logic, hosted
+- [AnonymFlow web-based DNS + WebRTC checker](https://www.anonymflow.com/en/tools/dns-leak-test) — same logic, hosted
 - [AnonymFlow public WiFi risks 2026](https://www.anonymflow.com/en/blog/public-wifi-risks-2026) — context when this leak matters most
 
 ## License
