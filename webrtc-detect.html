@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>WebRTC Leak Detector — by AnonymFlow.com</title>
+<title>WebRTC Leak Detector  -  by AnonymFlow.com</title>
 <meta name="description" content="Open-source, single-file WebRTC leak detector. Detects RTC IP leaks even with a VPN active. No tracking, runs entirely in your browser." />
 <style>
   :root { color-scheme: light dark; }
@@ -26,7 +26,7 @@
 <body>
 
 <h1>WebRTC Leak Detector</h1>
-<p class="subtitle">Detects if your browser leaks your real IP via WebRTC, even with a VPN active. Runs entirely in your browser — no tracking, no server roundtrip.</p>
+<p class="subtitle">Detects if your browser leaks your real IP via WebRTC, even with a VPN active. Runs entirely in your browser  -  no tracking, no server roundtrip.</p>
 
 <button id="run-btn" type="button">Start the test</button>
 
@@ -37,27 +37,27 @@
   <p>
     The script creates an <code>RTCPeerConnection</code> with a list of public STUN servers,
     starts an offer, and listens for <code>icecandidate</code> events. Each candidate that
-    arrives is parsed to extract the IP — these are the IPs your browser is willing to
+    arrives is parsed to extract the IP  -  these are the IPs your browser is willing to
     advertise for peer-to-peer connections, including <em>local network addresses</em> and
     <em>your true public IP if mDNS obfuscation is off</em>.
   </p>
   <p>
-    For a complete write-up of the technique — including mitigations per browser, mDNS
-    behaviour since Chrome 75, and Firefox's <code>media.peerconnection.enabled</code> flag —
+    For a complete write-up of the technique  -  including mitigations per browser, mDNS
+    behaviour since Chrome 75, and Firefox's <code>media.peerconnection.enabled</code> flag  - 
     see:
   </p>
-  <p><strong><a href="https://www.anonymflow.com/en/blog/dns-leak-test">DNS + WebRTC leak methodology by AnonymFlow</a></strong></p>
+  <p><strong>Try the hosted interactive version: <a href="https://www.anonymflow.com/en/webrtc-leak-test">WebRTC leak test on AnonymFlow</a></strong> (same check, nothing installed), or read the <a href="https://www.anonymflow.com/en/blog/dns-leak-test">DNS + WebRTC leak methodology</a>.</p>
 </details>
 
 <footer>
   <p>
-    Open source on GitHub — single-file HTML, no dependency, no analytics, MIT licensed.
+    Open source on GitHub  -  single-file HTML, no dependency, no analytics, MIT licensed.
   </p>
   <p>
     Companion tools:
     <a href="https://www.anonymflow.com/en/tools/test-fuite-dns">browser DNS leak checker</a>
     ·
-    <a href="https://github.com/your-org/dns-leak-detector-cli">DNS leak CLI</a>
+    <a href="https://github.com/ricco020/webrtc-ip-leak">DNS leak CLI</a>
     ·
     <a href="https://www.anonymflow.com/en/blog/complete-vpn-security-audit">full VPN security audit (9 tests)</a>
   </p>
@@ -132,7 +132,7 @@ async function probeWebRtc() {
   });
 }
 
-// Safe DOM builders — no innerHTML, no string concatenation of user-shaped data.
+// Safe DOM builders  -  no innerHTML, no string concatenation of user-shaped data.
 function el(tag, props = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
@@ -166,7 +166,7 @@ async function runTest() {
   btn.disabled = true;
   box.className = "result-box pending";
   clearChildren(box);
-  box.appendChild(document.createTextNode("Probing — please wait up to 4 seconds…"));
+  box.appendChild(document.createTextNode("Probing  -  please wait up to 4 seconds…"));
 
   let publicIp = "unknown";
   try {
@@ -202,14 +202,14 @@ async function runTest() {
   } else if (isRealIpLeak) {
     box.className = "result-box leak";
     verdict.appendChild(el("strong", { text: "❌ Leak: your real public IP " + publicIp + " is exposed via WebRTC." }));
-    verdict.appendChild(document.createTextNode(" Any peer can read it during an RTC handshake — including a malicious script on a page you visit. "));
+    verdict.appendChild(document.createTextNode(" Any peer can read it during an RTC handshake  -  including a malicious script on a page you visit. "));
     const link = el("a", { href: METHODOLOGY_URL, text: "Mitigation guide" });
     verdict.appendChild(link);
     verdict.appendChild(document.createTextNode("."));
   } else {
     box.className = "result-box leak";
     verdict.appendChild(el("strong", { text: "⚠️ Public WebRTC candidates detected but they don't match your egress IP." }));
-    verdict.appendChild(document.createTextNode(" Unusual — possibly a VPN whose ICE candidates expose a separate tunnel IP. Investigate."));
+    verdict.appendChild(document.createTextNode(" Unusual  -  possibly a VPN whose ICE candidates expose a separate tunnel IP. Investigate."));
   }
   box.appendChild(verdict);
   btn.disabled = false;
